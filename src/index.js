@@ -1,19 +1,42 @@
-const baseDomain = 'bigbraintest.wixsite.com';
-const url = 'https://bigbraintest.wixsite.com/site';
 const getLinks = require('./getLinks');
-const depth = 3;
-const allLinks = {};
 
+const baseOrigin = 'https://bigbraintest.wixsite.com';
+const url = 'https://bigbraintest.wixsite.com/site';
+const depth = 4;
 
-//todo -
-// run over url, find all links
-// for each link - find if it's internal (use 'baseDomain'), and save this parameter
-// if external - save it to 'allLinks' obj
-// if internal - run the same function on this url as well
-// and so on - until you reach to the 'depth' parameter level
+// Initialize allLinks
+const allLinks = {
+    [url]: { url, internal: true }
+};
 
-// this code works for one URL:
-getLinks(baseDomain, url)
-    .then(data => {
-        console.log(data);
-    });
+const scrape = (baseOrigin, position, depth) => {
+
+    if (depth === 0 || !position.internal) {
+        delete position.url;
+        delete position.internal;
+        return Promise.resolve();
+    }
+
+    // Update depth
+    depth--;
+
+    console.log(`${position.url} ${depth}`);
+
+    return getLinks(baseOrigin, position.url)
+        .then((links) => {
+            // Clear position object
+            delete position.url;
+            delete position.internal;
+
+            // Assign links to current position object
+            Object.assign(position, links);
+
+            // Recursively run scrape function on all the links
+            return Promise.all(Object.keys(position).map(key => scrape(baseOrigin, position[key], depth)));
+        });
+
+};
+
+scrape(baseOrigin, allLinks[url], depth).then(() => {
+    console.log(JSON.stringify(allLinks, null, "  "));
+});

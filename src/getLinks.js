@@ -1,32 +1,38 @@
 const puppeteer = require('puppeteer');
 
-let getLinks = async (baseDomain, url) => {
+const getLinks = async (baseOrigin, url) => {
     const browser = await puppeteer.launch({ headless: true });
     const page = await browser.newPage();
 
     await page.goto(url);
-    await page.waitForSelector('#WIX_ADS');
-    const result = await page.evaluate((baseDomain, url) => {
-        let data = {};
-        let elements = document.querySelectorAll('a'); // Select all links
 
-        for (const element of elements) {
-            const href = element.href.trim().split('?')[0].split('#')[0];
-            if (!href.length) continue;
-            if (href === url) continue;
+    const result = await page.evaluate(pageScript, baseOrigin, url);
 
-            if (!data[href]) {
-                data[href] = {
-                    url: href,
-                    internal: href.indexOf(baseDomain) > -1
-                };
-            }
-        }
-        return data;
-    }, baseDomain, url);
+    await browser.close();
 
-    browser.close();
     return result;
 };
+
+const pageScript = (baseOrigin, url) => (
+    // Select all links
+    Array.from(document.querySelectorAll('a'))
+        // Filter empty links
+        .filter(a => a.href.length > 0)
+        // Map to object array
+        .map((a) => {
+            const linkUrl = new URL(a.href);
+            return { url: linkUrl.origin + linkUrl.pathname, internal: linkUrl.origin === baseOrigin }
+        })
+        // Filter current url
+        .filter(item => item.url !== url)
+        // Filter non http links
+        .filter(item => item.url.indexOf('http') > -1)
+        // Reduce to single object
+        .reduce((acc, curr) => {
+            acc[curr.url] = curr;
+            return acc;
+        }, {})
+);
+
 
 module.exports = getLinks;
